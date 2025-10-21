@@ -1,3 +1,9 @@
+import { ClipboardManager } from '@/app/components/ClipboardManager';
+
 export default function Home() {
-  return <></>;
+  return (
+    <main>
+      <ClipboardManager />
+    </main>
+  );
 }
