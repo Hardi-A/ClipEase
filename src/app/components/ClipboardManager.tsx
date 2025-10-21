@@ -3,7 +3,7 @@
 import { AppProvider, useAppContext } from "@/app/context/AppContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { ClipboardHistory, FileText, Bot, Search } from "lucide-react";
+import { ClipboardList, FileText, Bot, Search } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { ClipboardHistory as ClipboardHistoryTab } from "./ClipboardHistory";
 import { SnippetManager } from "./SnippetManager";
@@ -36,7 +36,7 @@ function MainLayout() {
         <Tabs defaultValue="history" className="h-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="history">
-              <ClipboardHistory className="mr-2 h-4 w-4" /> History
+              <ClipboardList className="mr-2 h-4 w-4" /> History
             </TabsTrigger>
             <TabsTrigger value="snippets">
               <FileText className="mr-2 h-4 w-4" /> Snippets
