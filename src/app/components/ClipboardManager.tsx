@@ -34,17 +34,19 @@ function MainLayout() {
 
       <main className="flex-1">
         <Tabs defaultValue="history" className="h-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="history">
-              <ClipboardList className="mr-2 h-4 w-4" /> History
-            </TabsTrigger>
-            <TabsTrigger value="snippets">
-              <FileText className="mr-2 h-4 w-4" /> Snippets
-            </TabsTrigger>
-            <TabsTrigger value="ai">
-              <Bot className="mr-2 h-4 w-4" /> AI Suggestions
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-center">
+            <TabsList>
+              <TabsTrigger value="history">
+                <ClipboardList className="mr-2 h-4 w-4" /> History
+              </TabsTrigger>
+              <TabsTrigger value="snippets">
+                <FileText className="mr-2 h-4 w-4" /> Snippets
+              </TabsTrigger>
+              <TabsTrigger value="ai">
+                <Bot className="mr-2 h-4 w-4" /> AI Suggestions
+              </TabsTrigger>
+            </TabsList>
+          </div>
           
           <TabsContent value="history" className="mt-4">
             <ClipboardHistoryTab />
