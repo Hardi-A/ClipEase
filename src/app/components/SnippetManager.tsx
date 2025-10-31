@@ -3,68 +3,14 @@
 import React, { useState } from "react";
 import { useAppContext } from "@/app/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
-import type { Snippet, SnippetCategory } from "@/lib/types";
+import type { Snippet } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Copy, Edit, Plus, Trash2, GripVertical, FileText } from "lucide-react";
+import { Copy, Edit, Plus, Trash2, FileText } from "lucide-react";
+import { SnippetForm } from "./SnippetForm";
 
-function SnippetForm({
-  snippet,
-  onSave,
-  onClose,
-}: {
-  snippet?: Snippet;
-  onSave: (data: Omit<Snippet, "id"> | Snippet) => void;
-  onClose: () => void;
-}) {
-  const { categories } = useAppContext();
-  const [name, setName] = useState(snippet?.name || "");
-  const [content, setContent] = useState(snippet?.content || "");
-  const [categoryId, setCategoryId] = useState(snippet?.categoryId || categories[0]?.id || "");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !content.trim() || !categoryId) return;
-    onSave(snippet ? { ...snippet, name, content, categoryId } : { name, content, categoryId });
-    onClose();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="snippet-name">Name</Label>
-        <Input id="snippet-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., React Component" required />
-      </div>
-      <div>
-        <Label htmlFor="snippet-category">Category</Label>
-        <Select value={categoryId} onValueChange={setCategoryId}>
-          <SelectTrigger id="snippet-category">
-            <SelectValue placeholder="Select a category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="snippet-content">Content</Label>
-        <Textarea id="snippet-content" value={content} onChange={(e) => setContent(e.target.value)} placeholder="const MyComponent = () => <div>Hello</div>;" required className="font-code min-h-[150px]" />
-      </div>
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit">Save Snippet</Button>
-      </DialogFooter>
-    </form>
-  );
-}
 
 function SnippetItem({ snippet }: { snippet: Snippet }) {
   const { deleteSnippet, updateSnippet } = useAppContext();
@@ -74,6 +20,10 @@ function SnippetItem({ snippet }: { snippet: Snippet }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(snippet.content);
     toast({ title: "Snippet copied to clipboard!" });
+  };
+
+  const handleSave = (data: Omit<Snippet, 'id' | 'createdAt'> | Snippet) => {
+    updateSnippet(data as Snippet);
   };
 
   return (
@@ -96,7 +46,7 @@ function SnippetItem({ snippet }: { snippet: Snippet }) {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Snippet</DialogTitle></DialogHeader>
-            <SnippetForm snippet={snippet} onSave={updateSnippet} onClose={() => setIsEditDialogOpen(false)} />
+            <SnippetForm snippet={snippet} onSave={handleSave} onClose={() => setIsEditDialogOpen(false)} />
           </DialogContent>
         </Dialog>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCopy}><Copy className="h-4 w-4" /></Button>
@@ -119,6 +69,10 @@ export function SnippetManager() {
 
   const totalSnippets = categories.reduce((acc, cat) => acc + getSnippetsForCategory(cat.id).length, 0);
 
+  const handleSave = (data: Omit<Snippet, 'id' | 'createdAt'> | Snippet) => {
+    addSnippet(data as Omit<Snippet, 'id' | 'createdAt'>);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -132,7 +86,7 @@ export function SnippetManager() {
               <DialogTitle>Add New Snippet</DialogTitle>
               <DialogDescription>Save a new snippet for quick access.</DialogDescription>
             </DialogHeader>
-            <SnippetForm onSave={addSnippet} onClose={() => setIsAddSnippetOpen(false)} />
+            <SnippetForm onSave={handleSave} onClose={() => setIsAddSnippetOpen(false)} />
           </DialogContent>
         </Dialog>
       </div>

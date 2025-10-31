@@ -2,6 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, doc } from 'firebase/firestore';
 import type { ClipboardItem, Snippet, SnippetCategory, AppTheme } from "@/lib/types";
 
 interface AppContextType {
@@ -16,7 +19,7 @@ interface AppContextType {
 
   snippets: Snippet[];
   categories: SnippetCategory[];
-  addSnippet: (snippet: Omit<Snippet, 'id'>) => void;
+  addSnippet: (snippet: Omit<Snippet, 'id' | 'createdAt'>) => void;
   updateSnippet: (snippet: Snippet) => void;
   deleteSnippet: (id: string) => void;
   addCategory: (name: string) => void;
@@ -35,14 +38,34 @@ const initialCategories: SnippetCategory[] = [
   { id: 'code', name: 'Code Fragments' },
 ];
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export function AppProvider({ children, userId }: { children: React.ReactNode; userId?: string }) {
   const [theme, setTheme] = useLocalStorage<AppTheme>("clipmanager-theme", "system");
-
-  const [history, setHistory] = useLocalStorage<ClipboardItem[]>("clipmanager-history", []);
-  const [snippets, setSnippets] = useLocalStorage<Snippet[]>("clipmanager-snippets", []);
-  const [categories, setCategories] = useLocalStorage<SnippetCategory[]>("clipmanager-categories", initialCategories);
-
   const [searchTerm, setSearchTerm] = useState("");
+  const firestore = useFirestore();
+
+  // Firestore collections
+  const historyRef = useMemoFirebase(() => userId ? collection(firestore, 'users', userId, 'clipboardItems') : null, [firestore, userId]);
+  const snippetsRef = useMemoFirebase(() => userId ? collection(firestore, 'users', userId, 'snippets') : null, [firestore, userId]);
+  const categoriesRef = useMemoFirebase(() => userId ? collection(firestore, 'users', userId, 'categories') : null, [firestore, userId]);
+
+  const { data: historyData } = useCollection<ClipboardItem>(historyRef);
+  const { data: snippetsData } = useCollection<Snippet>(snippetsRef);
+  const { data: categoriesData, isLoading: categoriesLoading } = useCollection<SnippetCategory>(categoriesRef);
+
+  const history = historyData || [];
+  const snippets = snippetsData || [];
+  const categories = categoriesData || initialCategories;
+
+  // Set up initial categories for a new user
+  useEffect(() => {
+    if (userId && !categoriesLoading && categoriesData && categoriesData.length === 0) {
+      const generalRef = doc(firestore, 'users', userId, 'categories', 'general');
+      setDocumentNonBlocking(generalRef, initialCategories[0], {});
+      const codeRef = doc(firestore, 'users', userId, 'categories', 'code');
+      setDocumentNonBlocking(codeRef, initialCategories[1], {});
+    }
+  }, [userId, firestore, categoriesData, categoriesLoading]);
+
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -57,55 +80,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   const addHistoryItem = (content: string) => {
-    if (!content || history.some(item => item.content === content)) return;
-    const newItem: ClipboardItem = {
-      id: crypto.randomUUID(),
-      type: 'text',
+    if (!content || !historyRef) return;
+    if (history.some(item => item.content === content)) return;
+    const id = crypto.randomUUID();
+    const newItem: Omit<ClipboardItem, 'id'> = {
+      contentType: 'text',
       content,
       createdAt: Date.now(),
       isPinned: false,
     };
-    setHistory(prev => [newItem, ...prev]);
+    const docRef = doc(historyRef, id);
+    setDocumentNonBlocking(docRef, { ...newItem, id }, { merge: true });
   };
 
   const togglePinHistoryItem = (id: string) => {
-    setHistory(prev => prev.map(item => item.id === id ? { ...item, isPinned: !item.isPinned } : item));
+    if (!userId) return;
+    const item = history.find(i => i.id === id);
+    if (!item) return;
+    const docRef = doc(firestore, 'users', userId, 'clipboardItems', id);
+    setDocumentNonBlocking(docRef, { isPinned: !item.isPinned }, { merge: true });
   };
 
   const deleteHistoryItem = (id: string) => {
-    setHistory(prev => prev.filter(item => item.id !== id));
+    if (!userId) return;
+    const docRef = doc(firestore, 'users', userId, 'clipboardItems', id);
+    deleteDocumentNonBlocking(docRef);
   };
 
   const clearHistory = () => {
-    setHistory(prev => prev.filter(item => item.isPinned));
+    history.forEach(item => {
+      if (!item.isPinned) {
+        deleteHistoryItem(item.id);
+      }
+    });
   };
 
-  const addSnippet = (snippet: Omit<Snippet, 'id'>) => {
-    const newSnippet = { ...snippet, id: crypto.randomUUID() };
-    setSnippets(prev => [...prev, newSnippet]);
+  const addSnippet = (snippet: Omit<Snippet, 'id' | 'createdAt'>) => {
+    if (!snippetsRef) return;
+    const id = crypto.randomUUID();
+    const newSnippet: Snippet = { ...snippet, id, createdAt: Date.now() };
+    const docRef = doc(snippetsRef, id);
+    setDocumentNonBlocking(docRef, newSnippet, { merge: true });
   };
 
   const updateSnippet = (updatedSnippet: Snippet) => {
-    setSnippets(prev => prev.map(s => s.id === updatedSnippet.id ? updatedSnippet : s));
+    if (!userId) return;
+    const docRef = doc(firestore, 'users', userId, 'snippets', updatedSnippet.id);
+    setDocumentNonBlocking(docRef, updatedSnippet, { merge: true });
   };
 
   const deleteSnippet = (id: string) => {
-    setSnippets(prev => prev.filter(s => s.id !== id));
+    if (!userId) return;
+    const docRef = doc(firestore, 'users', userId, 'snippets', id);
+    deleteDocumentNonBlocking(docRef);
   };
 
   const addCategory = (name: string) => {
-    const newCategory = { id: crypto.randomUUID(), name };
-    setCategories(prev => [...prev, newCategory]);
+    if (!categoriesRef) return;
+    const id = crypto.randomUUID();
+    const newCategory: SnippetCategory = { id, name };
+    const docRef = doc(categoriesRef, id);
+    setDocumentNonBlocking(docRef, newCategory, { merge: true });
   };
 
   const updateCategory = (updatedCategory: SnippetCategory) => {
-    setCategories(prev => prev.map(c => c.id === updatedCategory.id ? updatedCategory : c));
+    if (!userId) return;
+    const docRef = doc(firestore, 'users', userId, 'categories', updatedCategory.id);
+    setDocumentNonBlocking(docRef, updatedCategory, { merge: true });
   };
   
   const deleteCategory = (id: string) => {
-    if (id === 'general' || id === 'code') return;
-    setCategories(prev => prev.filter(c => c.id !== id));
-    setSnippets(prev => prev.filter(s => s.categoryId !== id));
+    if (!userId || id === 'general' || id === 'code') return;
+    const docRef = doc(firestore, 'users', userId, 'categories', id);
+    deleteDocumentNonBlocking(docRef);
+    // Also delete snippets in that category
+    snippets.forEach(s => {
+      if (s.categoryId === id) {
+        deleteSnippet(s.id);
+      }
+    });
   };
 
   const getSnippetsForCategory = (categoryId: string) => {

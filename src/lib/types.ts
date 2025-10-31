@@ -1,6 +1,6 @@
 export type ClipboardItem = {
   id: string;
-  type: 'text';
+  contentType: 'text';
   content: string;
   createdAt: number;
   isPinned: boolean;
@@ -11,6 +11,7 @@ export type Snippet = {
   name: string;
   content: string;
   categoryId: string;
+  createdAt: number;
 };
 
 export type SnippetCategory = {

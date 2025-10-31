@@ -1,17 +1,35 @@
 "use client";
 
 import { AppProvider, useAppContext } from "@/app/context/AppContext";
+import { useUser } from "@/firebase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { ClipboardList, FileText, Bot, Search } from "lucide-react";
+import { ClipboardList, FileText, Bot, Search, Loader2 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { ClipboardHistory as ClipboardHistoryTab } from "./ClipboardHistory";
 import { SnippetManager } from "./SnippetManager";
 import { AISuggestions } from "./AISuggestions";
 import { Logo } from "./Logo";
+import { Authentication } from "./Authentication";
+import { UserMenu } from "./UserMenu";
+
 
 function MainLayout() {
+  const { user, isUserLoading } = useUser();
   const { searchTerm, setSearchTerm } = useAppContext();
+
+  if (isUserLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Authentication />;
+  }
 
   return (
     <div className="container mx-auto flex min-h-screen flex-col p-4 md:p-8">
@@ -29,6 +47,7 @@ function MainLayout() {
             />
           </div>
           <ThemeToggle />
+          <UserMenu />
         </div>
       </header>
 
@@ -64,8 +83,9 @@ function MainLayout() {
 }
 
 export function ClipboardManager() {
+  const { user } = useUser();
   return (
-    <AppProvider>
+    <AppProvider userId={user?.uid}>
       <MainLayout />
     </AppProvider>
   );

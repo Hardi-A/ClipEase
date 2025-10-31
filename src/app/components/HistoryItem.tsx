@@ -52,7 +52,7 @@ export function HistoryItem({ item }: HistoryItemProps) {
             className={`h-8 w-8 transform transition-transform hover:scale-110 ${item.isPinned ? "text-primary" : ""}`}
           >
             {item.isPinned ? (
-              <PinOff className="h-4 w-4" />
+              <PinOff className="h-4 w-4 fill-current" />
             ) : (
               <Pin className="h-4 w-4" />
             )}
