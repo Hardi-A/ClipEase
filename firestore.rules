@@ -1,0 +1,111 @@
+/**
+ * @file Firebase Security Rules for Firestore.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for all data. Each user has a dedicated data tree under `/users/{userId}`, and only the authenticated user matching the `userId` can access that data.
+ *
+ * Data Structure:
+ * All data is nested under `/users/{userId}`, including clipboard items, snippets, categories, and settings. This path-based ownership simplifies the rules and ensures strong isolation between users.
+ *
+ * Key Security Decisions:
+ * - User listing is explicitly denied for privacy.
+ * - Data validation is relaxed to allow for rapid prototyping but critical authorization fields are validated.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Checks if the request is made by a signed-in user.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Prevents unauthenticated access.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the resource, based on the userId in the path.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces path-based ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the resource, based on the userId in the path and that the resource exists.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces path-based ownership and resource existence.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Enforces user-ownership for clipboard items. Only the user whose ID matches the path can read, create, update, or delete items.
+     * @path /users/{userId}/clipboardItems/{clipboardItemId}
+     * @allow (create) User A creating a clipboard item under /users/UserA/clipboardItems/item1
+     * @deny (create) User B creating a clipboard item under /users/UserA/clipboardItems/item1
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/clipboardItems/{clipboardItemId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == clipboardItemId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Enforces user-ownership for snippets. Only the user whose ID matches the path can read, create, update, or delete snippets.
+     * @path /users/{userId}/snippets/{snippetId}
+     * @allow (create) User A creating a snippet under /users/UserA/snippets/snippet1
+     * @deny (create) User B creating a snippet under /users/UserA/snippets/snippet1
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/snippets/{snippetId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == snippetId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Enforces user-ownership for categories. Only the user whose ID matches the path can read, create, update, or delete categories.
+     * @path /users/{userId}/categories/{categoryId}
+     * @allow (create) User A creating a category under /users/UserA/categories/category1
+     * @deny (create) User B creating a category under /users/UserA/categories/category1
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/categories/{categoryId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == categoryId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Enforces user-ownership for settings. Only the user whose ID matches the path can read, create, update, or delete settings.
+     * @path /users/{userId}/settings/{settingId}
+     * @allow (create) User A creating a setting under /users/UserA/settings/setting1
+     * @deny (create) User B creating a setting under /users/UserA/settings/setting1
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/settings/{settingId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == settingId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
